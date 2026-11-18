@@ -1,15 +1,15 @@
 #include "src/tini.h"
-
+#include <string.h>
+#include <stdlib.h>
 
 int main() {
-  const char* itemLine = "name: str = \"true\"";
-  IniErr err;
-  IniItem ival = parseIniItemLine(itemLine, &err);
-  if (err != TINI_SUCCESS) {
-    printf("error validating double string: %d\n", err);
-    return 1;
+  char str[20] = "section.name";
+  strVec splitTable = splitTableNameSections(str);
+  for(int i = 0; i < splitTable.size; i++) {  
+    char* section = splitTable.vec[i];
+    printf("%s\n", section);
+    free(section);
   }
-  printf("%s\n", ival.typedValue.string);
-  freeIniItem(&ival);
+  free(splitTable.vec);
   return 0;
 }

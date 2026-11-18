@@ -28,7 +28,6 @@ parseTableNameFromFileLine(const char* line, IniErr* tini_err) {
 
 static IniType
 parseTypeToIniType(const char* type, IniErr* tini_err) {
-  printf("'%s'\n", type);
   unsigned int isString = strcmp(type, INIT_ITEM_TYPE_STRING) == 0;
   unsigned int isInt = strcmp(type, INIT_ITEM_TYPE_INT) == 0;
   unsigned int isUInt = strcmp(type, INIT_ITEM_TYPE_UINT) == 0;
@@ -36,7 +35,6 @@ parseTypeToIniType(const char* type, IniErr* tini_err) {
   unsigned int isFloat = strcmp(type, INIT_ITEM_TYPE_FLOAT) == 0;
   unsigned int isBool = strcmp(type, INIT_ITEM_TYPE_BOOL) == 0;
 
-  printf("'%s'\n'%s'\n", type, INIT_ITEM_TYPE_STRING);
 
   if (isString)
     return TINI_String;
@@ -96,7 +94,6 @@ tiniPow(double base, int power) {
   return result;
 }
 
-
 static double
 strToDouble(const char* value, IniErr* tini_err) {
   double result = 0;
@@ -143,7 +140,6 @@ strToBool(const char* str, IniErr* tini_err) {
 static IniValue
 parseIniItemValue(const char* value, IniType type, IniErr* tini_err) {
   IniValue val = {};
-  printf("%d\n", type);
   *tini_err = TINI_SUCCESS;
   switch(type) {
     case TINI_Integer:
@@ -262,4 +258,44 @@ freeIniItem(IniItem *item) {
   free(item->name);
   free(item->rawValue);
   freeIniValue(item->typedValue, item->type);
+}
+typedef struct {
+  char** vec;
+  size_t size;
+} strVec;
+
+static strVec
+splitTableNameSections(char* tableName) {
+  int sectionsCount = 0;
+  int* sectionsPositions = (int*) malloc(sizeof(int) * strlen(tableName));
+  for(int j = 0; j < strlen(tableName); j++) {
+    if(tableName[j] == '.') {
+      sectionsPositions[sectionsCount] = j;
+      sectionsCount++;
+    }
+  }
+  int lastPos = 0;
+  char** result = (char**)malloc(sizeof(char*) * (sectionsCount+1));
+  for(int i = 0; i < sectionsCount; i++) {
+    int pos = sectionsPositions[i];
+    char* sectionName = (char*)malloc(sizeof(char) * (pos - lastPos + 1));
+    strncpy(sectionName, &tableName[lastPos], pos - lastPos);
+    sectionName[pos-lastPos] = '\0';
+    result[i] = sectionName;
+    lastPos = pos+1;
+  }
+  free(sectionsPositions);
+  if (lastPos != strlen(tableName)) {
+    char* sectionName = (char*)malloc(sizeof(char) * (strlen(tableName) - lastPos + 1));
+    strncpy(sectionName, &tableName[lastPos], strlen(tableName) - lastPos);
+    sectionName[strlen(tableName)-lastPos] = '\0';
+    result[sectionsCount] = sectionName;
+    sectionsCount++;
+  }
+  return (strVec){ .vec=result, .size=sectionsCount };
+}
+
+void
+setTableSubsections(IniTable target, IniTableV tables, IniErr* tini_err) {
+  
 }

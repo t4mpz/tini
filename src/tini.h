@@ -101,7 +101,16 @@ const IniItem
 parseIniItemLine(const char* line, IniErr* tini_err);
 
 void
+setTableSubsections(IniTable target, IniTableV tables, IniErr* tini_err);
+
+void
 freeIniItem(IniItem* item);
 
 void
 freeIniTable(IniTable* table);
+
+void
+freeIniTableV(IniTableV tables);
+
+void
+freeIniItemV(IniItemV items);
