@@ -1,0 +1,6 @@
+[section]
+domain: string = 
+
+[section.kafka.datalake]
+bootstrap_servers: string = ""
+
