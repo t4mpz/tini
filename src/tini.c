@@ -4,6 +4,13 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+static void
+okTini(IniErr* tini_err) {
+  tini_err->code = TINI_SUCCESS;
+  tini_err->msg = "";
+}
+
+
 const char*
 parseTableNameFromFileLine(const char* line, IniErr* tini_err) {
   // checks if the line contains the open and closing table name
@@ -11,18 +18,19 @@ parseTableNameFromFileLine(const char* line, IniErr* tini_err) {
   size_t closeBoundSize = strlen(INIT_TABLE_SUB_CLOSE_BOUND);
   if (strncmp(&line[0], INIT_TABLE_SUB_OPEN_BOUND, openBoundSize) != 0) {
     printf("Invalid initial line char %s", &line[0]);
-    *tini_err = TINI_INVALID_TINI_TABLE_NOTATION;
+    tini_err->code = TINI_INVALID_TINI_TABLE_NOTATION;
+    sprintf(tini_err->msg, " Invalid Table Line notation %s, use notation %stable-name%s", line, INIT_TABLE_SUB_OPEN_BOUND, INIT_TABLE_SUB_CLOSE_BOUND);
     return NULL;
   }
   if (strncmp(&line[strlen(line)-1], INIT_TABLE_SUB_CLOSE_BOUND, closeBoundSize) != 0) {
     printf("Invalid end line char %s", &line[strlen(line)]);
-    *tini_err = TINI_INVALID_TINI_TABLE_NOTATION;
+    tini_err->code = TINI_INVALID_TINI_TABLE_NOTATION;
     return NULL; // invalid table name without closing bounds
   }
   size_t tableNameSize = (strlen(line) - (openBoundSize + closeBoundSize));
   char* tableName = (char*) malloc(sizeof(char) * (tableNameSize+1));
   strncpy(tableName, &line[openBoundSize], tableNameSize);
-  *tini_err = TINI_SUCCESS;
+  okTini(tini_err);
   return tableName;
 }
 
@@ -65,13 +73,13 @@ strToInt(const char* value, IniErr* tini_err) {
       continue;
     }
     if (!isDigit(value[i])) {
-        *tini_err = TINI_INVALID_NUMERIC_CHAR;
+        tini_err->code = TINI_INVALID_NUMERIC_CHAR;
         return 0;
     }
     result += (value[i] - '0') * fold10;
     fold10 *= 10;
   }
-  *tini_err = TINI_SUCCESS;
+  tini_err->code = TINI_SUCCESS;
   return result;
 }
 
@@ -114,25 +122,25 @@ strToDouble(const char* value, IniErr* tini_err) {
       continue;
     }
     if (!isDigit(value[i])) {
-      *tini_err = TINI_INVALID_NUMERIC_CHAR;
+      tini_err->code = TINI_INVALID_NUMERIC_CHAR;
       return 0;
     }
     result += (value[i] - '0') * fold10;
     fold10 *= 10;
   }
-  *tini_err = TINI_SUCCESS;
+  tini_err->code = TINI_SUCCESS;
   return result * tiniPow(10, -unfold10);
 }
 
 static bool
 strToBool(const char* str, IniErr* tini_err) {
-  *tini_err = TINI_SUCCESS;
+  tini_err->code = TINI_SUCCESS;
   if (strcmp(str, INIT_BOOLEAN_TRUE) == 0)
       return true;
   else if (strcmp(str, INIT_BOOLEAN_FALSE) == 0)
       return false;
   else  {
-    *tini_err = TINI_INVALID_BOOL_VALUE;
+    tini_err->code = TINI_INVALID_BOOL_VALUE;
     return false;
   }
 }
@@ -140,7 +148,8 @@ strToBool(const char* str, IniErr* tini_err) {
 static IniValue
 parseIniItemValue(const char* value, IniType type, IniErr* tini_err) {
   IniValue val = {};
-  *tini_err = TINI_SUCCESS;
+  tini_err->code = TINI_SUCCESS;
+  tini_err->msg = NULL;
   switch(type) {
     case TINI_Integer:
       val.integer = strToInt(value, tini_err);
@@ -162,7 +171,8 @@ parseIniItemValue(const char* value, IniType type, IniErr* tini_err) {
       strcpy(val.string, value);
       break;
     default:
-      *tini_err = TINI_UNKNOWN_VALUE_PARSE;
+      tini_err->code = TINI_UNKNOWN_VALUE_PARSE;
+      sprintf(tini_err->msg, " parseIniItemValue :> Invalid value received %s ", value);
   }
   return val;
 }
@@ -202,13 +212,28 @@ parseIniItemLine(const char* line, IniErr* tini_err) {
   IniItem item = {};
   const char* typesign = strstr(line, INIT_TYPECAST_SIGN);
   if (typesign == NULL) {
-    *tini_err = TINI_INVALID_TINI_ITEM_TYPE_NOTATION;
-    printf("type cast sign not found");
+    tini_err->code = TINI_INVALID_TINI_ITEM_TYPE_NOTATION;
+    sprintf(
+        tini_err->msg, 
+        " Invalid untyped line %s, use %s to cast types in a field like field %s:string %s yourvalue ", 
+        line,
+        INIT_TYPECAST_SIGN,
+        INIT_TYPECAST_SIGN,
+        INIT_VALUESIGN
+    );
     return item;
   }
   const char* valsign = strstr(line, INIT_VALUESIGN);
   if (valsign == NULL) {
-    *tini_err = TINI_INVALID_TINI_ITEM_VALUE_NOTATION;
+    tini_err->code = TINI_INVALID_TINI_ITEM_VALUE_NOTATION;
+    sprintf(
+        tini_err->msg, 
+        " Invalid value notation line %s, use %s to assign values to a field like field %s:string %s yourvalue ", 
+        line,
+        INIT_TYPECAST_SIGN,
+        INIT_TYPECAST_SIGN,
+        INIT_VALUESIGN
+    );
     printf("value cast sign not found");
     return item;
   }
@@ -296,6 +321,6 @@ splitTableNameSections(char* tableName) {
 }
 
 void
-setTableSubsections(IniTable target, IniTableV tables, IniErr* tini_err) {
+parseTini(IniTable target, IniTableV tables, IniErr* tini_err) {
   
 }

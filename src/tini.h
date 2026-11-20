@@ -71,6 +71,11 @@ typedef enum {
   TINI_INVALID_NUMERIC_CHAR = -6,
   TINI_INVALID_BOOL_VALUE = -7,
   TINI_UNKNOWN_VALUE_PARSE = -8,
+} TINI_ERR_CODE;
+
+typedef struct {
+  TINI_ERR_CODE code;
+  char* msg;
 } IniErr;
 
 char* 
@@ -114,3 +119,6 @@ freeIniTableV(IniTableV tables);
 
 void
 freeIniItemV(IniItemV items);
+
+void
+parseTiniContent(char* content, IniErr* tini_err);
