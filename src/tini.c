@@ -7,35 +7,35 @@
 static void
 okTini(IniErr* tini_err) {
   tini_err->code = TINI_SUCCESS;
-  tini_err->msg = "";
+  memset(tini_err->msg, '\0', 1024);
 }
 
 
-const char*
-parseTableNameFromFileLine(const char* line, IniErr* tini_err) {
+IniErr
+parseTableNameFromFileLine(const char* line, char* out) {
   // checks if the line contains the open and closing table name
   size_t openBoundSize  = strlen(INIT_TABLE_SUB_OPEN_BOUND);
   size_t closeBoundSize = strlen(INIT_TABLE_SUB_CLOSE_BOUND);
+  IniErr tini_err;
   if (strncmp(&line[0], INIT_TABLE_SUB_OPEN_BOUND, openBoundSize) != 0) {
     printf("Invalid initial line char %s", &line[0]);
-    tini_err->code = TINI_INVALID_TINI_TABLE_NOTATION;
-    sprintf(tini_err->msg, " Invalid Table Line notation %s, use notation %stable-name%s", line, INIT_TABLE_SUB_OPEN_BOUND, INIT_TABLE_SUB_CLOSE_BOUND);
-    return NULL;
+    tini_err.code = TINI_INVALID_TINI_TABLE_NOTATION;
+    sprintf(tini_err.msg, "Invalid Table Line notation %s, use notation %stable-name%s", line, INIT_TABLE_SUB_OPEN_BOUND, INIT_TABLE_SUB_CLOSE_BOUND);
   }
   if (strncmp(&line[strlen(line)-1], INIT_TABLE_SUB_CLOSE_BOUND, closeBoundSize) != 0) {
     printf("Invalid end line char %s", &line[strlen(line)]);
-    tini_err->code = TINI_INVALID_TINI_TABLE_NOTATION;
-    return NULL; // invalid table name without closing bounds
+    tini_err.code = TINI_INVALID_TINI_TABLE_NOTATION;
   }
   size_t tableNameSize = (strlen(line) - (openBoundSize + closeBoundSize));
   char* tableName = (char*) malloc(sizeof(char) * (tableNameSize+1));
   strncpy(tableName, &line[openBoundSize], tableNameSize);
-  okTini(tini_err);
-  return tableName;
+  okTini(&tini_err);
+  out = tableName;
+  return tini_err; 
 }
 
-static IniType
-parseTypeToIniType(const char* type, IniErr* tini_err) {
+static void
+parseTypeToIniType(const char* type, IniType* out) {
   unsigned int isString = strcmp(type, INIT_ITEM_TYPE_STRING) == 0;
   unsigned int isInt = strcmp(type, INIT_ITEM_TYPE_INT) == 0;
   unsigned int isUInt = strcmp(type, INIT_ITEM_TYPE_UINT) == 0;
@@ -45,18 +45,19 @@ parseTypeToIniType(const char* type, IniErr* tini_err) {
 
 
   if (isString)
-    return TINI_String;
+    * out = TINI_String;
   if (isInt)
-    return TINI_Integer;
+    *out = TINI_Integer;
   if (isUInt)
-    return TINI_UInteger;
+    *out = TINI_UInteger;
   if (isFloat)
-    return TINI_Float;
+    *out = TINI_Float;
   if (isDouble)
-    return TINI_Double;
+    *out = TINI_Double;
   if (isBool)
-    return TINI_Bool;
-  return TINI_Unknown;
+    *out = TINI_Bool;
+  *out = TINI_Unknown;
+
 }
 
 static bool
@@ -64,23 +65,51 @@ isDigit(char c) {
   return c >= '0' && c <= '9';
 }
 
-static int
-strToInt(const char* value, IniErr* tini_err) {
+static IniErr
+strToInt(const char* value, int* out) {
   int result = 0;
   int fold10 = 1;
+  IniErr tini_err;
   for(int i = strlen(value)-1; i >= 0; i--) {
     if (value[i] == '_') {
       continue;
     }
     if (!isDigit(value[i])) {
-        tini_err->code = TINI_INVALID_NUMERIC_CHAR;
-        return 0;
+        tini_err.code = TINI_INVALID_NUMERIC_CHAR;
+        sprintf(tini_err.msg, "Invalid non numeric char received at value %s", value);
     }
     result += (value[i] - '0') * fold10;
     fold10 *= 10;
   }
-  tini_err->code = TINI_SUCCESS;
-  return result;
+  *out = result;
+  okTini(&tini_err);
+  return tini_err;
+}
+
+static IniErr
+strToUInt(const char* value, unsigned int* out) {
+  int result = 0;
+  int fold10 = 1;
+  IniErr tini_err;
+  for(int i = strlen(value)-1; i >= 0; i--) {
+    if (value[i] == '_') {
+      continue;
+    }
+    if (!isDigit(value[i])) {
+        tini_err.code = TINI_INVALID_NUMERIC_CHAR;
+        sprintf(tini_err.msg, "Invalid non numeric char received at value %s", value);
+    }
+    result += (value[i] - '0') * fold10;
+    fold10 *= 10;
+  }
+  if (result < 0) {
+    tini_err.code = TINI_INVALID_SIGNED_NUMERIC_VALUE;
+    sprintf(tini_err.msg, "Invalid signed numeric char received at value %d expected unsigned integer", result);
+    return tini_err;
+  }
+  *out = result;
+  okTini(&tini_err);
+  return tini_err;
 }
 
 static double
@@ -102,13 +131,19 @@ tiniPow(double base, int power) {
   return result;
 }
 
-static double
-strToDouble(const char* value, IniErr* tini_err) {
+static IniErr
+strToDouble(const char* value, double* out) {
   double result = 0;
   int fold10 = 1;
   const char* dot = strstr(value, ".");
+  IniErr tini_err;
   if (dot == NULL) {
-    return (double) strToInt(value, tini_err);
+    int iout;
+    tini_err = strToInt(value, &iout);
+    if (tini_err.code != TINI_SUCCESS) {
+      return tini_err;
+    }
+    *out = (double) iout;
   }
   int unfold10 = 0;
   for(int j = 0; j <= strlen(&dot[1]); j++) {
@@ -122,59 +157,112 @@ strToDouble(const char* value, IniErr* tini_err) {
       continue;
     }
     if (!isDigit(value[i])) {
-      tini_err->code = TINI_INVALID_NUMERIC_CHAR;
-      return 0;
+      tini_err.code = TINI_INVALID_NUMERIC_CHAR;
+      sprintf(
+          tini_err.msg, 
+          " Invalid non numeric (double) character '%c' received for numerically typed field",
+          value[i]
+        );
+      return tini_err;
     }
     result += (value[i] - '0') * fold10;
     fold10 *= 10;
   }
-  tini_err->code = TINI_SUCCESS;
-  return result * tiniPow(10, -unfold10);
+  okTini(&tini_err);
+  *out =  result * tiniPow(10, -unfold10);
+  return tini_err;
 }
 
-static bool
-strToBool(const char* str, IniErr* tini_err) {
-  tini_err->code = TINI_SUCCESS;
-  if (strcmp(str, INIT_BOOLEAN_TRUE) == 0)
-      return true;
-  else if (strcmp(str, INIT_BOOLEAN_FALSE) == 0)
-      return false;
-  else  {
-    tini_err->code = TINI_INVALID_BOOL_VALUE;
-    return false;
+static IniErr
+strToFloat(const char* value, float* out) {
+  double result = 0;
+  int fold10 = 1;
+  const char* dot = strstr(value, ".");
+  IniErr tini_err;
+  if (dot == NULL) {
+    int iout;
+    tini_err = strToInt(value, &iout);
+    if (tini_err.code != TINI_SUCCESS) {
+      return tini_err;
+    }
+    *out = (double) iout;
   }
+  int unfold10 = 0;
+  for(int j = 0; j <= strlen(&dot[1]); j++) {
+    if (dot[j] == '.' || dot[j] == '_') {
+      continue;
+    }
+    unfold10++;
+  }
+  for(int i = strlen(value)-1; i >= 0; i--) {
+    if (value[i] == '.' || value[i] == '_') {
+      continue;
+    }
+    if (!isDigit(value[i])) {
+      tini_err.code = TINI_INVALID_NUMERIC_CHAR;
+      sprintf(
+          tini_err.msg, 
+          " Invalid non numeric (double) character '%c' received for numerically typed field",
+          value[i]
+        );
+      return tini_err;
+    }
+    result += (value[i] - '0') * fold10;
+    fold10 *= 10;
+  }
+  okTini(&tini_err);
+  *out =  (float)(result * tiniPow(10, -unfold10));
+  return tini_err;
 }
 
-static IniValue
-parseIniItemValue(const char* value, IniType type, IniErr* tini_err) {
-  IniValue val = {};
-  tini_err->code = TINI_SUCCESS;
-  tini_err->msg = NULL;
+static IniErr
+strToBool(const char* str, bool* out) {
+  IniErr tini_err;
+  if (strcmp(str, INIT_BOOLEAN_TRUE) == 0)
+      *out = true;
+  else if (strcmp(str, INIT_BOOLEAN_FALSE) == 0)
+      *out = false;
+  else  {
+    tini_err.code = TINI_INVALID_BOOL_VALUE;
+    sprintf(tini_err.msg, "Invalid tini boolean value received %s", str);
+    return tini_err;
+  }
+  okTini(&tini_err);
+  return tini_err;
+}
+
+static IniErr
+parseIniItemValue(const char* value, IniType type, IniValue* out) {
+  IniErr tini_err;
+  okTini(&tini_err);
   switch(type) {
     case TINI_Integer:
-      val.integer = strToInt(value, tini_err);
+      tini_err = strToInt(value, &out->integer);
       break;
     case TINI_UInteger: 
-      val.uint = (unsigned int)strToInt(value, tini_err);
+      tini_err = strToUInt(value, &out->uint);
       break;
     case TINI_Float:
-      val._float = (float)strToDouble(value, tini_err);
+      tini_err = strToFloat(value, &out->_float);
       break;
     case TINI_Double:
-      val._double = strToDouble(value, tini_err);
+      tini_err = strToDouble(value, &out->_double);
       break;
     case TINI_Bool:
-      val.boolean = strToBool(value, tini_err);
+      tini_err = strToBool(value, &out->boolean);
       break;
     case TINI_String:
-      val.string = (char*) malloc(sizeof(char) * (strlen(value)+1));
-      strcpy(val.string, value);
+      out->string = strdup(value);
+      if (out->string == nullptr) {
+        tini_err.code = TINI_OUT_OF_MEMORY;
+        sprintf(tini_err.msg, " parseIniItemValue :> Invalid null string received ");
+      }
       break;
     default:
-      tini_err->code = TINI_UNKNOWN_VALUE_PARSE;
-      sprintf(tini_err->msg, " parseIniItemValue :> Invalid value received %s ", value);
+      tini_err.code = TINI_UNKNOWN_VALUE_PARSE;
+      sprintf(tini_err.msg, " parseIniItemValue :> Invalid value received %s ", value);
   }
-  return val;
+  return tini_err;
 }
 
 void
@@ -207,35 +295,35 @@ rtrim(char* c) {
   c[i+1] = '\0';
 }
 
-const IniItem
-parseIniItemLine(const char* line, IniErr* tini_err) {
-  IniItem item = {};
+IniErr
+parseIniItemLine(const char* line, IniItem* out) {
+  IniErr tini_err;
+  okTini(&tini_err);
   const char* typesign = strstr(line, INIT_TYPECAST_SIGN);
   if (typesign == NULL) {
-    tini_err->code = TINI_INVALID_TINI_ITEM_TYPE_NOTATION;
+    tini_err.code = TINI_INVALID_TINI_ITEM_TYPE_NOTATION;
     sprintf(
-        tini_err->msg, 
+        tini_err.msg, 
         " Invalid untyped line %s, use %s to cast types in a field like field %s:string %s yourvalue ", 
         line,
         INIT_TYPECAST_SIGN,
         INIT_TYPECAST_SIGN,
         INIT_VALUESIGN
     );
-    return item;
+    return tini_err;
   }
   const char* valsign = strstr(line, INIT_VALUESIGN);
   if (valsign == NULL) {
-    tini_err->code = TINI_INVALID_TINI_ITEM_VALUE_NOTATION;
+    tini_err.code = TINI_INVALID_TINI_ITEM_VALUE_NOTATION;
     sprintf(
-        tini_err->msg, 
+        tini_err.msg, 
         " Invalid value notation line %s, use %s to assign values to a field like field %s:string %s yourvalue ", 
         line,
         INIT_TYPECAST_SIGN,
         INIT_TYPECAST_SIGN,
         INIT_VALUESIGN
     );
-    printf("value cast sign not found");
-    return item;
+    return tini_err;
   }
 
   char* name = (char*) malloc(sizeof(char) * (typesign-line+1));
@@ -255,21 +343,27 @@ parseIniItemLine(const char* line, IniErr* tini_err) {
   rawType[valsign-typesign-1] = '\0';
   ltrim(rawType);
   rtrim(rawType);
+  IniType type;
 
-  IniType type = parseTypeToIniType(rawType, tini_err);
+  parseTypeToIniType(rawType, &type);
   free(rawType);
 
-  IniValue typedValue = parseIniItemValue(value, type, tini_err);
+  IniValue typedValue; 
+  tini_err = parseIniItemValue(value, type, &typedValue);
+
+  if(tini_err.code != TINI_SUCCESS) {
+    return tini_err;
+  }
 
   // parse item value
-  item = (IniItem){
+  *out = (IniItem){
     .name = name,
     .rawValue = value,
     .type = type,
     .typedValue = typedValue,
   };
   
-  return item;
+  return tini_err;
 }
 
 void
@@ -320,7 +414,3 @@ splitTableNameSections(char* tableName) {
   return (strVec){ .vec=result, .size=sectionsCount };
 }
 
-void
-parseTini(IniTable target, IniTableV tables, IniErr* tini_err) {
-  
-}

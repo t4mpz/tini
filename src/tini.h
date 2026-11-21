@@ -71,39 +71,41 @@ typedef enum {
   TINI_INVALID_NUMERIC_CHAR = -6,
   TINI_INVALID_BOOL_VALUE = -7,
   TINI_UNKNOWN_VALUE_PARSE = -8,
+  TINI_INVALID_SIGNED_NUMERIC_VALUE = -9,
+  TINI_OUT_OF_MEMORY = -10,
 } TINI_ERR_CODE;
 
 typedef struct {
   TINI_ERR_CODE code;
-  char* msg;
+  char msg[1024];
 } IniErr;
 
-char* 
-IniAsString(const IniItem item, IniErr* ierr); 
+IniErr
+IniAsString(const IniItem item, char* out); 
 
-int 
-IniAsInt(const IniItem item, IniErr* ierr); 
+IniErr 
+IniAsInt(const IniItem item, int* out); 
 
-unsigned int 
-IniAsUInt(const IniItem item, IniErr* ierr); 
+IniErr 
+IniAsUInt(const IniItem item, unsigned int* out); 
 
-double 
-IniAsDouble(const IniItem item, IniErr* ierr); 
+IniErr 
+IniAsDouble(const IniItem item, double* out); 
 
-float 
-IniAsFloat(const IniItem item, IniErr* ierr); 
+IniErr 
+IniAsFloat(const IniItem item, float* ierr); 
 
-bool
-IniAsBoolean(const IniItem item, IniErr* ierr);
+IniErr
+IniAsBoolean(const IniItem item, bool* out);
 
 IniErr 
 parseTini(FILE* file);
 
-const char*
-parseTableNameFromFileLine(const char* line, IniErr* tini_err);
+IniErr
+parseTableNameFromFileLine(const char* line, char* out);
 
-const IniItem
-parseIniItemLine(const char* line, IniErr* tini_err);
+IniErr
+parseIniItemLine(const char* line, IniItem* out);
 
 void
 setTableSubsections(IniTable target, IniTableV tables, IniErr* tini_err);
