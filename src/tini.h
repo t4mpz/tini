@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TINI_H 
+#define TINI_H
 #include <stdio.h>
 #include <stdbool.h>
 #define INIT_TABLE_SUB_DELIMITER "."
@@ -124,3 +125,5 @@ freeIniItemV(IniItemV items);
 
 void
 parseTiniContent(char* content, IniErr* tini_err);
+
+#endif
