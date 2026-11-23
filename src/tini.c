@@ -137,7 +137,7 @@ strToDouble(const char* value, double* out) {
   int fold10 = 1;
   const char* dot = strstr(value, ".");
   IniErr tini_err;
-  if (dot == NULL) {
+  if (dot == nullptr) {
     int iout;
     tini_err = strToInt(value, &iout);
     if (tini_err.code != TINI_SUCCESS) {
@@ -179,7 +179,7 @@ strToFloat(const char* value, float* out) {
   int fold10 = 1;
   const char* dot = strstr(value, ".");
   IniErr tini_err;
-  if (dot == NULL) {
+  if (dot == nullptr) {
     int iout;
     tini_err = strToInt(value, &iout);
     if (tini_err.code != TINI_SUCCESS) {
@@ -300,7 +300,7 @@ parseIniItemLine(const char* line, IniItem* out) {
   IniErr tini_err;
   okTini(&tini_err);
   const char* typesign = strstr(line, INIT_TYPECAST_SIGN);
-  if (typesign == NULL) {
+  if (typesign == nullptr) {
     tini_err.code = TINI_INVALID_TINI_ITEM_TYPE_NOTATION;
     sprintf(
         tini_err.msg, 
@@ -313,7 +313,7 @@ parseIniItemLine(const char* line, IniItem* out) {
     return tini_err;
   }
   const char* valsign = strstr(line, INIT_VALUESIGN);
-  if (valsign == NULL) {
+  if (valsign == nullptr) {
     tini_err.code = TINI_INVALID_TINI_ITEM_VALUE_NOTATION;
     sprintf(
         tini_err.msg, 
