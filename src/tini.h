@@ -49,6 +49,7 @@ typedef struct {
 typedef struct {
   IniItem* items;
   size_t count;
+  size_t capacity;
 } IniItemV;
 
 typedef struct IniTable IniTable;
@@ -56,6 +57,7 @@ typedef struct IniTable IniTable;
 typedef struct {
   IniTable* tables;
   size_t count;
+  size_t capacity;
 } IniTableV;
 
 struct IniTable {

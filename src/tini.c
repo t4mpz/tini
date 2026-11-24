@@ -7,31 +7,45 @@
 static void
 okTini(IniErr* tini_err) {
   tini_err->code = TINI_SUCCESS;
-  memset(tini_err->msg, '\0', 1024);
+  memset(tini_err->msg, '\0', TINI_ERR_MESSAGE_MAX_LEN);
+}
+
+static IniErr 
+iniErr() {
+  IniErr err = {
+    .code = TINI_SUCCESS,
+  };
+  memset(err.msg, '\0', TINI_ERR_MESSAGE_MAX_LEN);
+  return err;
 }
 
 
 IniErr
 parseTableNameFromFileLine(const char* line, char* out) {
   // checks if the line contains the open and closing table name
-  size_t openBoundSize  = strlen(INIT_TABLE_SUB_OPEN_BOUND);
-  size_t closeBoundSize = strlen(INIT_TABLE_SUB_CLOSE_BOUND);
   IniErr tini_err;
-  if (strncmp(&line[0], INIT_TABLE_SUB_OPEN_BOUND, openBoundSize) != 0) {
+  if (line[0] != INIT_TABLE_SUB_OPEN_BOUND) {
     printf("Invalid initial line char %s", &line[0]);
     tini_err.code = TINI_INVALID_TINI_TABLE_NOTATION;
-    sprintf(tini_err.msg, "Invalid Table Line notation %s, use notation %stable-name%s", line, INIT_TABLE_SUB_OPEN_BOUND, INIT_TABLE_SUB_CLOSE_BOUND);
+    sprintf(tini_err.msg, "Invalid Table Line notation %c, use notation %c-name%c", line[0], INIT_TABLE_SUB_OPEN_BOUND, INIT_TABLE_SUB_CLOSE_BOUND);
   }
-  if (strncmp(&line[strlen(line)-1], INIT_TABLE_SUB_CLOSE_BOUND, closeBoundSize) != 0) {
+  if (line[strlen(line)] != INIT_TABLE_SUB_CLOSE_BOUND) {
     printf("Invalid end line char %s", &line[strlen(line)]);
     tini_err.code = TINI_INVALID_TINI_TABLE_NOTATION;
   }
-  size_t tableNameSize = (strlen(line) - (openBoundSize + closeBoundSize));
+  size_t tableNameSize = (strlen(line) - 2);
   char* tableName = (char*) malloc(sizeof(char) * (tableNameSize+1));
-  strncpy(tableName, &line[openBoundSize], tableNameSize);
+  strncpy(tableName, &line[1], tableNameSize);
   okTini(&tini_err);
   out = tableName;
   return tini_err; 
+}
+
+static bool
+isTableLine(const char* line) {
+  bool startsOk = line[0] ==  INIT_TABLE_SUB_OPEN_BOUND;
+  bool endsOk = line[strlen(line)] == INIT_TABLE_SUB_CLOSE_BOUND;
+  return startsOk && endsOk;
 }
 
 static void
@@ -299,12 +313,12 @@ IniErr
 parseIniItemLine(const char* line, IniItem* out) {
   IniErr tini_err;
   okTini(&tini_err);
-  const char* typesign = strstr(line, INIT_TYPECAST_SIGN);
+  const char* typesign = strstr(line, &INIT_TYPECAST_SIGN);
   if (typesign == nullptr) {
     tini_err.code = TINI_INVALID_TINI_ITEM_TYPE_NOTATION;
     sprintf(
         tini_err.msg, 
-        " Invalid untyped line %s, use %s to cast types in a field like field %s:string %s yourvalue ", 
+        " Invalid untyped line %s, use %c to cast types in a field like field %c:string %c yourvalue ", 
         line,
         INIT_TYPECAST_SIGN,
         INIT_TYPECAST_SIGN,
@@ -312,12 +326,12 @@ parseIniItemLine(const char* line, IniItem* out) {
     );
     return tini_err;
   }
-  const char* valsign = strstr(line, INIT_VALUESIGN);
+  const char* valsign = strstr(line, &INIT_VALUESIGN);
   if (valsign == nullptr) {
     tini_err.code = TINI_INVALID_TINI_ITEM_VALUE_NOTATION;
     sprintf(
         tini_err.msg, 
-        " Invalid value notation line %s, use %s to assign values to a field like field %s:string %s yourvalue ", 
+        " Invalid value notation line %s, use %c to assign values to a field like field %c:string %c yourvalue ", 
         line,
         INIT_TYPECAST_SIGN,
         INIT_TYPECAST_SIGN,
@@ -414,3 +428,76 @@ splitTableNameSections(char* tableName) {
   return (strVec){ .vec=result, .size=sectionsCount };
 }
 
+typedef struct {
+  char* tableName;
+  size_t nameSize;
+  unsigned int line;
+} tableLine;
+
+typedef struct {
+  tableLine* tables;
+  size_t count;
+  size_t capacity;
+} tableLineV;
+
+static void
+pushTableLineV(tableLineV* lineV, tableLine to_push) {
+  if ((lineV->count)+1 > lineV->capacity) {
+    lineV->capacity++;
+    lineV->capacity *= 2;
+    lineV->tables = realloc(lineV->tables, sizeof(tableLine) * lineV->capacity);
+  }
+  lineV->tables[lineV->count] = to_push;
+  lineV->count++;
+}
+
+static IniErr
+findTablesInContent(char** lines, tableLineV* out, unsigned int linec) {
+  IniErr tini_err = iniErr();
+  for (int l = 0; l < linec; l++) {
+    if(!isTableLine(lines[l])) {
+      continue;
+    }
+    char* tableName;
+    tini_err = parseTableNameFromFileLine(lines[l], tableName);
+    if (tini_err.code != TINI_SUCCESS) {
+      return tini_err;
+    }
+    tableLine tl = {
+      .line = l,
+      .tableName = tableName,
+      .nameSize = strlen(tableName),
+    };
+    pushTableLineV(out, tl);
+  }
+  return tini_err;
+}
+
+void
+pushIniItem(IniItemV* itemPool, IniItem to_push) {
+  if ((itemPool->count)+1 > itemPool->capacity) {
+    itemPool->capacity++;
+    itemPool->capacity *= 2;
+    itemPool->items = realloc(itemPool->items, sizeof(tableLine) * itemPool->capacity);
+  }
+  itemPool->items[itemPool->count] = to_push;
+  itemPool->count++;
+}
+
+void
+pushIniTable(IniTableV* tablePool, IniTable to_push) {
+  if ((tablePool->count)+1 > tablePool->capacity) {
+    tablePool->capacity++;
+    tablePool->capacity *= 2;
+    tablePool->tables = realloc(tablePool->tables, sizeof(tableLine) * tablePool->capacity);
+  }
+  tablePool->tables[tablePool->count] = to_push;
+  tablePool->count++;
+}
+
+
+
+IniErr
+parseTiniContent(char* content, IniTableV* out) {
+
+}
