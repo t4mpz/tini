@@ -2,21 +2,23 @@
 #define TINI_H
 #include <stdio.h>
 #include <stdbool.h>
-#define INIT_TABLE_SUB_DELIMITER "."
-#define INIT_TABLE_SUB_OPEN_BOUND "["
-#define INIT_TABLE_SUB_CLOSE_BOUND "]"
-#define INIT_TYPECAST_SIGN ":"
-#define INIT_VALUESIGN "="
-#define INIT_ITEM_TYPE_STRING "str"
-#define INIT_ITEM_TYPE_UINT "uint"
-#define INIT_ITEM_TYPE_INT "int"
-#define INIT_ITEM_TYPE_DOUBLE "double"
-#define INIT_ITEM_TYPE_FLOAT "float"
-#define INIT_ITEM_TYPE_BOOL "bool"
-#define INIT_ITEM_TYPE_UNDEF "unknown"
-#define INIT_BOOLEAN_FALSE "false"
-#define INIT_BOOLEAN_TRUE "true"
+constexpr char INIT_TABLE_SUB_OPEN_BOUND  = '[';
+constexpr char INIT_TABLE_SUB_CLOSE_BOUND = ']';
+constexpr char  INIT_TYPECAST_SIGN = ':';
+constexpr char INIT_VALUESIGN = '=';
+constexpr char INIT_ITEM_TYPE_STRING[] = "str";
+constexpr char INIT_ITEM_TYPE_UINT[] = "uint";
+constexpr char INIT_ITEM_TYPE_INT[] = "int";
+constexpr char INIT_ITEM_TYPE_DOUBLE[] = "double";
+constexpr char INIT_ITEM_TYPE_FLOAT[] = "float";
+constexpr char INIT_ITEM_TYPE_BOOL[] = "bool";
+constexpr char INIT_ITEM_TYPE_UNDEF[] = "unknown";
+constexpr char INIT_BOOLEAN_FALSE[] = "false";
+constexpr char INIT_BOOLEAN_TRUE[] = "true";
+constexpr unsigned int TINI_ERR_MESSAGE_MAX_LEN = 1024;
 
+
+constexpr char INIT_TABLE_SUB_DELIMITER = '.';
 
 typedef enum {
   TINI_String = 0,
@@ -123,7 +125,7 @@ freeIniTableV(IniTableV tables);
 void
 freeIniItemV(IniItemV items);
 
-void
-parseTiniContent(char* content, IniErr* tini_err);
+IniErr
+parseTiniContent(char* content, IniTableV* out);
 
 #endif
